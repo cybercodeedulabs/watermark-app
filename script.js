@@ -1,88 +1,59 @@
-const imageInput = document.getElementById("image-upload");
-const logoInput = document.getElementById("logo-upload");
-const generateBtn = document.getElementById("generate-btn");
-const previewSection = document.getElementById("preview-section");
 
-let logoImage = null;
+document.getElementById("generateBtn").addEventListener("click", async () => {
+  const imageInput = document.getElementById("imageInput");
+  const logoInput = document.getElementById("logoInput");
+  const previewContainer = document.getElementById("previewContainer");
+  previewContainer.innerHTML = "";
 
-logoInput.addEventListener("change", () => {
-  const logoFile = logoInput.files[0];
-  if (!logoFile) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    logoImage = new Image();
-    logoImage.src = e.target.result;
-  };
-  reader.readAsDataURL(logoFile);
+  if (!logoInput.files[0]) {
+    alert("Please upload a logo first.");
+    return;
+  }
+
+  const logo = await loadImage(logoInput.files[0]);
+
+  for (let imageFile of imageInput.files) {
+    const image = await loadImage(imageFile);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    ctx.drawImage(image, 0, 0);
+    const scale = 0.2;
+    const logoWidth = image.width * scale;
+    const logoHeight = logo.height * (logoWidth / logo.width);
+    ctx.drawImage(logo, image.width - logoWidth - 10, image.height - logoHeight - 10, logoWidth, logoHeight);
+
+    const dataURL = canvas.toDataURL("image/png");
+
+    const previewDiv = document.createElement("div");
+    previewDiv.classList.add("preview-item");
+
+    const imgElement = document.createElement("img");
+    imgElement.src = dataURL;
+
+    const downloadLink = document.createElement("a");
+    downloadLink.href = dataURL;
+    downloadLink.download = `watermarked-${imageFile.name}`;
+    downloadLink.textContent = "Download";
+    downloadLink.classList.add("download-btn");
+
+    previewDiv.appendChild(imgElement);
+    previewDiv.appendChild(downloadLink);
+    previewContainer.appendChild(previewDiv);
+  }
 });
 
-generateBtn.addEventListener("click", () => {
-  previewSection.innerHTML = "";
-
-  if (!logoImage) {
-    alert("Please upload a logo before generating watermarked images.");
-    return;
-  }
-
-  const files = imageInput.files;
-  if (!files.length) {
-    alert("Please upload at least one image.");
-    return;
-  }
-
-  Array.from(files).forEach(file => {
+function loadImage(file) {
+  return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = (e) => {
       const img = new Image();
+      img.onload = () => resolve(img);
       img.src = e.target.result;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        const logoCanvas = document.createElement("canvas");
-        logoCanvas.width = canvas.width;
-        logoCanvas.height = canvas.height;
-        const logoCtx = logoCanvas.getContext("2d");
-
-        let posX = 50, posY = 50;
-
-        logoImage.onload = () => {
-          logoCtx.drawImage(logoImage, posX, posY, img.width / 6, img.height / 6);
-        };
-        logoCtx.drawImage(logoImage, posX, posY, img.width / 6, img.height / 6);
-
-        canvas.addEventListener("mousedown", function startDrag(e) {
-          function moveDrag(evt) {
-            logoCtx.clearRect(0, 0, canvas.width, canvas.height);
-            posX = evt.offsetX;
-            posY = evt.offsetY;
-            logoCtx.drawImage(logoImage, posX, posY, img.width / 6, img.height / 6);
-          }
-
-          function stopDrag() {
-            canvas.removeEventListener("mousemove", moveDrag);
-            canvas.removeEventListener("mouseup", stopDrag);
-          }
-
-          canvas.addEventListener("mousemove", moveDrag);
-          canvas.addEventListener("mouseup", stopDrag);
-        });
-
-        ctx.drawImage(logoCanvas, 0, 0);
-
-        const downloadLink = document.createElement("a");
-        downloadLink.textContent = "Download Watermarked Image";
-        downloadLink.href = canvas.toDataURL("image/png");
-        downloadLink.download = "watermarked-" + file.name;
-        downloadLink.className = "download-btn";
-
-        previewSection.appendChild(canvas);
-        previewSection.appendChild(downloadLink);
-      };
     };
     reader.readAsDataURL(file);
   });
-});
+}
